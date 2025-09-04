@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "481193241634",
+    "project_id": "insure-cd064",
+    "storage_bucket": "insure-cd064.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:481193241634:android:cac6b04cda203670282e7b",
+        "android_client_info": {
+          "package_name": "insure.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "481193241634-rsnrcjkm128qupccsvroqiuiuhh9u0fh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "insure.app",
+            "certificate_hash": "b03943cd1f95a6479b2f475eace3db461e0b06b5"
+          }
+        },
+        {
+          "client_id": "481193241634-ek0fjqrblcjhq7e5spvuptktr2uljvf9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtxtbMqASohhv7J6FRDpsIp-FYcf4QzzM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "481193241634-ek0fjqrblcjhq7e5spvuptktr2uljvf9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
