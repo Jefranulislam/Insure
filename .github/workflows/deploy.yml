@@ -1,13 +1,13 @@
-name: Build and Deploy
+name: Build and Release
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  build_web:
+  build_and_release:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -21,55 +21,55 @@ jobs:
       run: flutter pub get
       
     - name: Build web
-      run: flutter build web --release --base-href "/insure-app/"
-      
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build/web
-
-  build_android:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.35.1'
-        
-    - name: Get dependencies
-      run: flutter pub get
+      run: flutter build web --release
       
     - name: Build APK
       run: flutter build apk --release
       
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
+    - name: Build App Bundle
+      run: flutter build appbundle --release
+      
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: app-release.apk
-        path: build/app/outputs/flutter-apk/app-release.apk
-
-  build_windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+        body: |
+          ## What's New
+          - 🚀 New release of INSURE app
+          - 📱 Android APK available for download
+          - 🌐 Web version deployed
+          
+          ## Downloads
+          - **Android**: Download the APK below
+          - **Web**: Visit https://yourusername.github.io/insure-app/
+          
+          ## Installation
+          1. Download the APK file
+          2. Enable "Unknown sources" in Android settings
+          3. Install the APK
+          
+    - name: Upload APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        flutter-version: '3.35.1'
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/app/outputs/flutter-apk/app-release.apk
+        asset_name: insure-app-${{ github.ref_name }}.apk
+        asset_content_type: application/vnd.android.package-archive
         
-    - name: Get dependencies
-      run: flutter pub get
-      
-    - name: Build Windows
-      run: flutter build windows --release
-      
-    - name: Upload Windows Build
-      uses: actions/upload-artifact@v3
+    - name: Upload App Bundle to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: windows-build
-        path: build/windows/x64/runner/Release/
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/app/outputs/bundle/release/app-release.aab
+        asset_name: insure-app-${{ github.ref_name }.aab
+        asset_content_type: application/octet-stream
