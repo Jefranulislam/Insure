@@ -6,9 +6,12 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('About Us', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFF1E88E5),
-        iconTheme: IconThemeData(color: Colors.white),
+        title: Text(
+          'About Us',
+          style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
+        ),
+        backgroundColor: Color(0xFFF0F4F6),
+        iconTheme: IconThemeData(color: Color.fromARGB(255, 68, 68, 68)),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20),
@@ -24,8 +27,7 @@ class AboutScreen extends StatelessWidget {
                     height: 100,
                     width: 100,
                     decoration: BoxDecoration(
-                      color: Color(0xFF1E88E5),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black26,
@@ -34,22 +36,33 @@ class AboutScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Icon(
-                      Icons.security,
-                      size: 50,
-                      color: Colors.white,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/iconINSURESO.webp',
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 100,
+                            width: 100,
+                            decoration: BoxDecoration(
+                              color: Color.fromARGB(255, 68, 68, 68),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.security,
+                              size: 50,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                   SizedBox(height: 20),
-                  Text(
-                    'INSURE',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E88E5),
-                      letterSpacing: 2,
-                    ),
-                  ),
+                  // Removed INSURE text as requested
                   SizedBox(height: 8),
                   Text(
                     'Never Lose a Warranty Again',
@@ -62,13 +75,13 @@ class AboutScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Mission Statement
             _buildSection(
               'Our Mission',
               'INSURE is designed to help you keep track of all your product warranties in one secure place. Never worry about losing warranty cards or missing expiry dates again.',
             ),
-            
+
             // Features Section
             _buildSection(
               'Key Features',
@@ -108,13 +121,13 @@ class AboutScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Version and Credits
             _buildSection(
               'App Information',
               'Version 1.0.0\n\nDeveloped with ❤️ using Flutter\n\nSecure cloud storage powered by Firebase',
             ),
-            
+
             // Contact Section
             Container(
               width: double.infinity,
@@ -146,9 +159,9 @@ class AboutScreen extends StatelessWidget {
                   _buildContactItem(Icons.email, 'support@insureapp.com'),
                   _buildContactItem(Icons.phone, '+1 (555) 123-4567'),
                   _buildContactItem(Icons.web, 'www.insureapp.com'),
-                  
+
                   SizedBox(height: 20),
-                  
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -160,7 +173,7 @@ class AboutScreen extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Privacy and Terms
             Container(
               width: double.infinity,
@@ -186,35 +199,28 @@ class AboutScreen extends StatelessWidget {
                     },
                     child: Text(
                       'Privacy Policy',
-                      style: TextStyle(color: Color(0xFF1E88E5)),
+                      style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
                     ),
                   ),
-                  Container(
-                    height: 20,
-                    width: 1,
-                    color: Colors.grey[300],
-                  ),
+                  Container(height: 20, width: 1, color: Colors.grey[300]),
                   TextButton(
                     onPressed: () {
                       _showTermsDialog(context);
                     },
                     child: Text(
                       'Terms of Service',
-                      style: TextStyle(color: Color(0xFF1E88E5)),
+                      style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
                     ),
                   ),
                 ],
               ),
             ),
-            
+
             // Copyright
             SizedBox(height: 20),
             Text(
               '© 2024 INSURE App. All rights reserved.',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
           ],
         ),
@@ -231,11 +237,7 @@ class AboutScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -246,7 +248,7 @@ class AboutScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1E88E5),
+              color: Color.fromARGB(255, 68, 68, 68),
             ),
           ),
           SizedBox(height: 12),
@@ -273,14 +275,10 @@ class AboutScreen extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Color(0xFF1E88E5).withOpacity(0.1),
+              color: Color.fromARGB(255, 136, 136, 136).withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              color: Color(0xFF1E88E5),
-              size: 24,
-            ),
+            child: Icon(icon, color: Color.fromARGB(255, 68, 68, 68), size: 24),
           ),
           SizedBox(width: 16),
           Expanded(
@@ -289,17 +287,11 @@ class AboutScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -314,15 +306,9 @@ class AboutScreen extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, color: Color(0xFF1E88E5), size: 20),
+          Icon(icon, color: Color.fromARGB(255, 68, 68, 68), size: 20),
           SizedBox(width: 12),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-            ),
-          ),
+          Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[700])),
         ],
       ),
     );
@@ -336,18 +322,18 @@ class AboutScreen extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Color(0xFF1E88E5).withOpacity(0.1),
+          color: Color.fromARGB(255, 136, 136, 136).withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           children: [
-            Icon(icon, color: Color(0xFF1E88E5)),
+            Icon(icon, color: Color.fromARGB(255, 68, 68, 68)),
             SizedBox(height: 4),
             Text(
               platform,
               style: TextStyle(
                 fontSize: 10,
-                color: Color(0xFF1E88E5),
+                color: Color.fromARGB(255, 68, 68, 68),
               ),
             ),
           ],

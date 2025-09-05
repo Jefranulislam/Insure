@@ -11,7 +11,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _filterCategory = 'All';
-  
+
   final List<String> _categories = [
     'All',
     'Electronics',
@@ -21,7 +21,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
     'Clothing',
     'Sports & Outdoors',
     'Home & Garden',
-    'Other'
+    'Other',
   ];
 
   @override
@@ -29,9 +29,12 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('All Products', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFF1E88E5),
-        iconTheme: IconThemeData(color: Colors.white),
+        title: Text(
+          'All Products',
+          style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
+        ),
+        backgroundColor: Color(0xFFF0F4F6),
+        iconTheme: IconThemeData(color: Color.fromARGB(255, 68, 68, 68)),
         elevation: 0,
       ),
       body: Column(
@@ -62,7 +65,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                   },
                 ),
                 SizedBox(height: 12),
-                
+
                 // Category Filter
                 Container(
                   height: 40,
@@ -72,7 +75,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                     itemBuilder: (context, index) {
                       final category = _categories[index];
                       final isSelected = _filterCategory == category;
-                      
+
                       return Padding(
                         padding: EdgeInsets.only(right: 8),
                         child: FilterChip(
@@ -84,10 +87,17 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                             });
                           },
                           backgroundColor: Colors.grey[100],
-                          selectedColor: Color(0xFF1E88E5).withOpacity(0.2),
-                          checkmarkColor: Color(0xFF1E88E5),
+                          selectedColor: Color.fromARGB(
+                            255,
+                            136,
+                            136,
+                            136,
+                          ).withOpacity(0.3),
+                          checkmarkColor: Color.fromARGB(255, 68, 68, 68),
                           labelStyle: TextStyle(
-                            color: isSelected ? Color(0xFF1E88E5) : Colors.black,
+                            color: isSelected
+                                ? Color.fromARGB(255, 68, 68, 68)
+                                : Colors.black,
                           ),
                         ),
                       );
@@ -97,18 +107,50 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
               ],
             ),
           ),
-          
+
           // Products List
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('warranties')
-                  .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
+                  .where(
+                    'userId',
+                    isEqualTo: FirebaseAuth.instance.currentUser?.uid,
+                  )
+                  .snapshots(), // Removed orderBy to avoid index requirement
               builder: (context, snapshot) {
+                print('Stream state: ${snapshot.connectionState}');
+                print('Has data: ${snapshot.hasData}');
+                print('Docs count: ${snapshot.data?.docs.length ?? 0}');
+                print(
+                  'Current user: ${FirebaseAuth.instance.currentUser?.uid}',
+                );
+
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  print('Firestore error: ${snapshot.error}');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error, size: 60, color: Colors.red),
+                        SizedBox(height: 16),
+                        Text(
+                          'Error loading products',
+                          style: TextStyle(fontSize: 18, color: Colors.red),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '${snapshot.error}',
+                          style: TextStyle(color: Colors.red[300]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -132,9 +174,14 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                         SizedBox(height: 8),
                         Text(
                           'Add some products to get started',
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                          ),
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                        SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/debug-products');
+                          },
+                          child: Text('Debug Info'),
                         ),
                       ],
                     ),
@@ -143,25 +190,44 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
 
                 var warranties = snapshot.data!.docs.where((doc) {
                   var data = doc.data() as Map<String, dynamic>;
-                  
+
                   // Filter by search query
                   if (_searchQuery.isNotEmpty) {
-                    final productName = data['productName'].toString().toLowerCase();
+                    final productName = data['productName']
+                        .toString()
+                        .toLowerCase();
                     final brand = data['brand'].toString().toLowerCase();
-                    if (!productName.contains(_searchQuery) && !brand.contains(_searchQuery)) {
+                    if (!productName.contains(_searchQuery) &&
+                        !brand.contains(_searchQuery)) {
                       return false;
                     }
                   }
-                  
+
                   // Filter by category
                   if (_filterCategory != 'All') {
                     if (data['category'] != _filterCategory) {
                       return false;
                     }
                   }
-                  
+
                   return true;
                 }).toList();
+
+                // Sort manually by createdAt (newest first) since we can't use orderBy
+                warranties.sort((a, b) {
+                  var aData = a.data() as Map<String, dynamic>;
+                  var bData = b.data() as Map<String, dynamic>;
+                  var aCreated = aData['createdAt'] as Timestamp?;
+                  var bCreated = bData['createdAt'] as Timestamp?;
+
+                  if (aCreated == null && bCreated == null) return 0;
+                  if (aCreated == null) return 1;
+                  if (bCreated == null) return -1;
+
+                  return bCreated.compareTo(
+                    aCreated,
+                  ); // Descending order (newest first)
+                });
 
                 if (warranties.isEmpty) {
                   return Center(
@@ -184,9 +250,7 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                         SizedBox(height: 8),
                         Text(
                           'Try adjusting your filters',
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                          ),
+                          style: TextStyle(color: Colors.grey[500]),
                         ),
                       ],
                     ),
@@ -204,7 +268,8 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                       brand: data['brand'] ?? '',
                       category: data['category'] ?? '',
                       expiryDate: (data['expiryDate'] as Timestamp).toDate(),
-                      purchaseDate: (data['purchaseDate'] as Timestamp).toDate(),
+                      purchaseDate: (data['purchaseDate'] as Timestamp)
+                          .toDate(),
                       price: data['price']?.toDouble() ?? 0.0,
                       imageUrl: data['imageUrl'],
                     );
@@ -249,9 +314,7 @@ class ProductCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
           Navigator.pushNamed(
@@ -273,29 +336,98 @@ class ProductCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   color: Colors.grey[200],
                 ),
-                child: imageUrl != null
+                child: imageUrl != null && imageUrl!.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.inventory,
-                              color: Colors.grey[400],
-                              size: 30,
-                            );
-                          },
+                        child: Stack(
+                          children: [
+                            // Loading placeholder
+                            Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey[100],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color.fromARGB(255, 136, 136, 136),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Actual image
+                            Image.network(
+                              imageUrl!,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      width: 80,
+                                      height: 80,
+                                      color: Colors.grey[100],
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          value:
+                                              loadingProgress
+                                                      .expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                              : null,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Color.fromARGB(
+                                                  255,
+                                                  136,
+                                                  136,
+                                                  136,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.inventory,
+                                    color: Colors.grey[400],
+                                    size: 30,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       )
-                    : Icon(
-                        Icons.inventory,
-                        color: Colors.grey[400],
-                        size: 30,
+                    : Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.inventory,
+                          color: Colors.grey[400],
+                          size: 30,
+                        ),
                       ),
               ),
               SizedBox(width: 16),
-              
+
               // Product Info
               Expanded(
                 child: Column(
@@ -322,7 +454,10 @@ class ProductCard extends StatelessWidget {
                         ),
                         SizedBox(width: 8),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(10),
@@ -356,8 +491,8 @@ class ProductCard extends StatelessWidget {
                         color: isExpired
                             ? Colors.red
                             : isExpiringSoon
-                                ? Colors.orange
-                                : Colors.green,
+                            ? Colors.orange
+                            : Colors.green,
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
                       ),
@@ -365,7 +500,7 @@ class ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Status Icon and Actions
               Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -374,13 +509,13 @@ class ProductCard extends StatelessWidget {
                     isExpired
                         ? Icons.error
                         : isExpiringSoon
-                            ? Icons.warning
-                            : Icons.check_circle,
+                        ? Icons.warning
+                        : Icons.check_circle,
                     color: isExpired
                         ? Colors.red
                         : isExpiringSoon
-                            ? Colors.orange
-                            : Colors.green,
+                        ? Colors.orange
+                        : Colors.green,
                   ),
                   SizedBox(height: 8),
                   Icon(

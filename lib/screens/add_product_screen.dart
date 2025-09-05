@@ -18,7 +18,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _serialNumberController = TextEditingController();
   final _priceController = TextEditingController();
   final _notesController = TextEditingController();
-  
+
   DateTime? _purchaseDate;
   int _warrantyMonths = 12;
   String _selectedCategory = 'Electronics';
@@ -31,7 +31,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   bool _isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
-  
+
   final List<String> _categories = [
     'Electronics',
     'Appliances',
@@ -40,7 +40,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     'Clothing',
     'Sports & Outdoors',
     'Home & Garden',
-    'Other'
+    'Other',
   ];
 
   Future<void> _pickImage(String type) async {
@@ -55,7 +55,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
               title: Text('Camera'),
               onTap: () async {
                 Navigator.pop(context);
-                final image = await _picker.pickImage(source: ImageSource.camera);
+                final image = await _picker.pickImage(
+                  source: ImageSource.camera,
+                );
                 if (image != null) {
                   setState(() {
                     switch (type) {
@@ -81,7 +83,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
               title: Text('Gallery'),
               onTap: () async {
                 Navigator.pop(context);
-                final image = await _picker.pickImage(source: ImageSource.gallery);
+                final image = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                );
                 if (image != null) {
                   setState(() {
                     switch (type) {
@@ -110,10 +114,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   Future<String?> _uploadImage(File image, String folder) async {
     try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('$folder/${DateTime.now().millisecondsSinceEpoch}');
-      
+      final ref = FirebaseStorage.instance.ref().child(
+        '$folder/${DateTime.now().millisecondsSinceEpoch}',
+      );
+
       await ref.putFile(image);
       return await ref.getDownloadURL();
     } catch (e) {
@@ -139,7 +143,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
       String? productImageUrl;
 
       if (_warrantyCardImage != null) {
-        warrantyCardUrl = await _uploadImage(_warrantyCardImage!, 'warranty_cards');
+        warrantyCardUrl = await _uploadImage(
+          _warrantyCardImage!,
+          'warranty_cards',
+        );
       }
       if (_receiptImage != null) {
         receiptUrl = await _uploadImage(_receiptImage!, 'receipts');
@@ -149,7 +156,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
       }
 
       // Calculate expiry date
-      final expiryDate = _purchaseDate!.add(Duration(days: _warrantyMonths * 30));
+      final expiryDate = _purchaseDate!.add(
+        Duration(days: _warrantyMonths * 30),
+      );
 
       // Save to Firestore
       await FirebaseFirestore.instance.collection('warranties').add({
@@ -170,15 +179,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
         'isActive': true,
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Warranty saved successfully!')),
-      );
-      
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Warranty saved successfully!')));
+
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving warranty: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error saving warranty: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -188,9 +197,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Product', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFF1E88E5),
-        iconTheme: IconThemeData(color: Colors.white),
+        title: Text(
+          'Add Product',
+          style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
+        ),
+        backgroundColor: Color(0xFFF0F4F6),
+        iconTheme: IconThemeData(color: Color.fromARGB(255, 68, 68, 68)),
       ),
       body: Form(
         key: _formKey,
@@ -229,10 +241,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 border: OutlineInputBorder(),
               ),
               items: _categories.map((category) {
-                return DropdownMenuItem(
-                  value: category,
-                  child: Text(category),
-                );
+                return DropdownMenuItem(value: category, child: Text(category));
               }).toList(),
               onChanged: (value) {
                 setState(() => _selectedCategory = value!);
@@ -314,10 +323,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             // Images Section
             Text(
               'Photos (Optional)',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
 
@@ -360,7 +366,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             ElevatedButton(
               onPressed: _isLoading ? null : _saveWarranty,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF1E88E5),
+                backgroundColor: Color.fromARGB(255, 68, 68, 68),
                 padding: EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -385,7 +391,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   Widget _buildImagePickerCard(String title, File? image, VoidCallback onTap) {
     String? imagePath;
-    
+
     // Get the image path for web compatibility
     if (title.contains('Warranty')) {
       imagePath = _warrantyCardImagePath;
@@ -394,7 +400,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     } else if (title.contains('Product')) {
       imagePath = _productImagePath;
     }
-    
+
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -414,16 +420,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: kIsWeb && imagePath != null
-                            ? Image.network(
-                                imagePath!,
-                                fit: BoxFit.cover,
-                              )
+                            ? Image.network(imagePath!, fit: BoxFit.cover)
                             : image != null && !kIsWeb
-                                ? Image.file(
-                                    image,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(),
+                            ? Image.file(image, fit: BoxFit.cover)
+                            : Container(),
                       )
                     : Icon(
                         Icons.add_a_photo,
@@ -446,19 +446,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     Text(
                       image != null ? 'Tap to change' : 'Tap to add photo',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.grey[400],
-                size: 16,
-              ),
+              Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
             ],
           ),
         ),

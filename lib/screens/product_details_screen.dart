@@ -21,13 +21,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _loadWarrantyData() async {
     if (warrantyId == null) return;
-    
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('warranties')
           .doc(warrantyId)
           .get();
-      
+
       if (doc.exists) {
         setState(() {
           warrantyData = doc.data();
@@ -38,9 +38,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading product details')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading product details')));
     }
   }
 
@@ -49,8 +49,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: Text('Product Details'),
-          backgroundColor: Color(0xFF1E88E5),
+          title: Text(
+            'Product Details',
+            style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
+          ),
+          backgroundColor: Color(0xFFF0F4F6),
+          iconTheme: IconThemeData(color: Color.fromARGB(255, 68, 68, 68)),
         ),
         body: Center(child: CircularProgressIndicator()),
       );
@@ -59,8 +63,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (warrantyData == null) {
       return Scaffold(
         appBar: AppBar(
-          title: Text('Product Details'),
-          backgroundColor: Color(0xFF1E88E5),
+          title: Text(
+            'Product Details',
+            style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
+          ),
+          backgroundColor: Color(0xFFF0F4F6),
+          iconTheme: IconThemeData(color: Color.fromARGB(255, 68, 68, 68)),
         ),
         body: Center(
           child: Column(
@@ -70,10 +78,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               SizedBox(height: 16),
               Text(
                 'Product not found',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -101,9 +106,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('Product Details', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFF1E88E5),
-        iconTheme: IconThemeData(color: Colors.white),
+        title: Text(
+          'Product Details',
+          style: TextStyle(color: Color.fromARGB(255, 68, 68, 68)),
+        ),
+        backgroundColor: Color(0xFFF0F4F6),
+        iconTheme: IconThemeData(color: Color.fromARGB(255, 68, 68, 68)),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -135,17 +143,58 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               width: double.infinity,
               height: 200,
               color: Colors.white,
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildPlaceholderImage();
-                      },
+              child: imageUrl != null && imageUrl!.isNotEmpty
+                  ? Stack(
+                      children: [
+                        // Loading placeholder
+                        Container(
+                          width: double.infinity,
+                          height: 200,
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color.fromARGB(255, 136, 136, 136),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Actual image
+                        Image.network(
+                          imageUrl!,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              width: double.infinity,
+                              height: 200,
+                              color: Colors.grey[100],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color.fromARGB(255, 136, 136, 136),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print('Error loading image: $error');
+                            return _buildPlaceholderImage();
+                          },
+                        ),
+                      ],
                     )
                   : _buildPlaceholderImage(),
             ),
-            
+
             // Status Banner
             Container(
               width: double.infinity,
@@ -153,16 +202,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               color: isExpired
                   ? Colors.red
                   : isExpiringSoon
-                      ? Colors.orange
-                      : Colors.green,
+                  ? Colors.orange
+                  : Colors.green,
               child: Row(
                 children: [
                   Icon(
                     isExpired
                         ? Icons.error
                         : isExpiringSoon
-                            ? Icons.warning
-                            : Icons.check_circle,
+                        ? Icons.warning
+                        : Icons.check_circle,
                     color: Colors.white,
                   ),
                   SizedBox(width: 8),
@@ -170,8 +219,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     isExpired
                         ? 'Warranty Expired ${(-daysLeft)} days ago'
                         : isExpiringSoon
-                            ? 'Expiring Soon - $daysLeft days left'
-                            : 'Active - $daysLeft days remaining',
+                        ? 'Expiring Soon - $daysLeft days left'
+                        : 'Active - $daysLeft days remaining',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -181,7 +230,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 ],
               ),
             ),
-            
+
             // Product Information
             Container(
               margin: EdgeInsets.all(16),
@@ -202,30 +251,33 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 children: [
                   Text(
                     productName,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   Text(
                     brand,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   SizedBox(height: 16),
-                  
+
                   _buildInfoRow('Category', category),
                   if (serialNumber.isNotEmpty)
                     _buildInfoRow('Serial Number', serialNumber),
                   if (price > 0)
-                    _buildInfoRow('Purchase Price', '\$${price.toStringAsFixed(2)}'),
-                  _buildInfoRow('Purchase Date', DateFormat('MMM dd, yyyy').format(purchaseDate)),
+                    _buildInfoRow(
+                      'Purchase Price',
+                      '\$${price.toStringAsFixed(2)}',
+                    ),
+                  _buildInfoRow(
+                    'Purchase Date',
+                    DateFormat('MMM dd, yyyy').format(purchaseDate),
+                  ),
                   _buildInfoRow('Warranty Period', '$warrantyMonths months'),
-                  _buildInfoRow('Expiry Date', DateFormat('MMM dd, yyyy').format(expiryDate)),
-                  
+                  _buildInfoRow(
+                    'Expiry Date',
+                    DateFormat('MMM dd, yyyy').format(expiryDate),
+                  ),
+
                   if (notes.isNotEmpty) ...[
                     SizedBox(height: 16),
                     Text(
@@ -239,16 +291,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     SizedBox(height: 8),
                     Text(
                       notes,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ],
               ),
             ),
-            
+
             // Attachments Section
             if (warrantyCardUrl != null || receiptUrl != null)
               Container(
@@ -276,14 +325,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       ),
                     ),
                     SizedBox(height: 16),
-                    
+
                     if (warrantyCardUrl != null)
                       _buildAttachmentTile(
                         'Warranty Card',
                         Icons.credit_card,
                         warrantyCardUrl,
                       ),
-                    
+
                     if (receiptUrl != null)
                       _buildAttachmentTile(
                         'Receipt',
@@ -293,12 +342,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ],
                 ),
               ),
-            
+
             SizedBox(height: 20),
           ],
         ),
       ),
-      
+
       // Claim Warranty Button
       bottomNavigationBar: Container(
         padding: EdgeInsets.all(16),
@@ -336,18 +385,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inventory_2,
-              size: 60,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.inventory_2, size: 60, color: Colors.grey[400]),
             SizedBox(height: 8),
             Text(
               'No Image',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.grey[500], fontSize: 16),
             ),
           ],
         ),
@@ -375,10 +417,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.black87),
             ),
           ),
         ],
@@ -405,16 +444,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ),
-            Icon(
-              Icons.visibility,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.visibility, color: Colors.grey[400]),
           ],
         ),
       ),
@@ -450,9 +483,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
                       height: 200,
-                      child: Center(
-                        child: Text('Failed to load image'),
-                      ),
+                      child: Center(child: Text('Failed to load image')),
                     );
                   },
                 ),
@@ -469,7 +500,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete Product'),
-        content: Text('Are you sure you want to delete this warranty? This action cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete this warranty? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -478,17 +511,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context); // Close dialog
-              
+
               try {
                 await FirebaseFirestore.instance
                     .collection('warranties')
                     .doc(warrantyId)
                     .delete();
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Product deleted successfully')),
                 );
-                
+
                 Navigator.pop(context); // Go back to previous screen
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(

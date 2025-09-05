@@ -11,12 +11,12 @@ import 'screens/product_details_screen.dart';
 import 'screens/about_screen.dart';
 import 'screens/claim_warranty_screen.dart';
 import 'screens/debug_screen.dart';
+import 'screens/debug_products_screen.dart';
+import 'screens/notification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(InsureApp());
 }
 
@@ -42,6 +42,8 @@ class InsureApp extends StatelessWidget {
         '/about': (context) => AboutScreen(),
         '/claim-warranty': (context) => ClaimWarrantyScreen(),
         '/debug': (context) => DebugScreen(),
+        '/debug-products': (context) => DebugProductsScreen(),
+        '/notifications': (context) => NotificationScreen(),
       },
     );
   }
@@ -54,11 +56,7 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
+          return Scaffold(body: Center(child: CircularProgressIndicator()));
         } else if (snapshot.hasData) {
           return HomeScreen();
         } else {
