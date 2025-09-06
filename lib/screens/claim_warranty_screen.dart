@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../services/manufacturer_email_service.dart';
 
 class ClaimWarrantyScreen extends StatefulWidget {
   @override
@@ -13,11 +14,11 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
   Map<String, dynamic>? warrantyData;
   bool isLoading = true;
   bool isSubmitting = false;
-  
+
   final _formKey = GlobalKey<FormState>();
   final _issueController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   String _selectedIssueType = 'Defect';
   final List<String> _issueTypes = [
     'Defect',
@@ -25,7 +26,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
     'Damage',
     'Not Working',
     'Poor Performance',
-    'Other'
+    'Other',
   ];
 
   @override
@@ -37,13 +38,13 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
 
   Future<void> _loadWarrantyData() async {
     if (warrantyId == null) return;
-    
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('warranties')
           .doc(warrantyId)
           .get();
-      
+
       if (doc.exists) {
         setState(() {
           warrantyData = doc.data();
@@ -54,30 +55,37 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading warranty details')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading warranty details')));
     }
   }
 
   Future<void> _submitClaim() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       isSubmitting = true;
     });
 
     try {
+      // Get manufacturer email
+      final brand = warrantyData!['brand'] ?? '';
+      final companyEmail =
+          ManufacturerEmailService.getManufacturerEmail(brand) ?? '';
+
       // Create a warranty claim document
       await FirebaseFirestore.instance.collection('warranty_claims').add({
         'warrantyId': warrantyId,
         'userId': FirebaseAuth.instance.currentUser!.uid,
         'productName': warrantyData!['productName'],
-        'brand': warrantyData!['brand'],
+        'brand': brand,
+        'companyEmail': companyEmail,
         'issueType': _selectedIssueType,
         'issueTitle': _issueController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'status': 'Submitted',
+        'status': 'submitted',
+        'claimDate': Timestamp.now(),
         'createdAt': Timestamp.now(),
         'claimNumber': 'CLM${DateTime.now().millisecondsSinceEpoch}',
       });
@@ -88,7 +96,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      
+
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -132,10 +140,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
               SizedBox(height: 16),
               Text(
                 'Warranty not found',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -194,20 +199,22 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                       SizedBox(height: 4),
                       Text(
                         brand,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
                       SizedBox(height: 12),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: isExpired ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                          color: isExpired
+                              ? Colors.red.withOpacity(0.1)
+                              : Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          isExpired 
+                          isExpired
                               ? 'Warranty Expired'
                               : 'Warranty Active - $daysLeft days left',
                           style: TextStyle(
@@ -227,7 +234,11 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.warning, color: Colors.orange, size: 20),
+                                Icon(
+                                  Icons.warning,
+                                  color: Colors.orange,
+                                  size: 20,
+                                ),
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -247,7 +258,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                 ),
               ),
               SizedBox(height: 16),
-              
+
               // Claim Form
               Card(
                 child: Padding(
@@ -269,7 +280,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                         ],
                       ),
                       SizedBox(height: 20),
-                      
+
                       // Issue Type Dropdown
                       DropdownButtonFormField<String>(
                         value: _selectedIssueType,
@@ -291,7 +302,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                         },
                       ),
                       SizedBox(height: 16),
-                      
+
                       // Issue Title
                       TextFormField(
                         controller: _issueController,
@@ -309,7 +320,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                         },
                       ),
                       SizedBox(height: 16),
-                      
+
                       // Detailed Description
                       TextFormField(
                         controller: _descriptionController,
@@ -318,7 +329,8 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                           labelText: 'Detailed Description *',
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.description),
-                          hintText: 'Provide a detailed description of the problem, when it occurred, and any steps you\'ve taken...',
+                          hintText:
+                              'Provide a detailed description of the problem, when it occurred, and any steps you\'ve taken...',
                           alignLabelWithHint: true,
                         ),
                         validator: (value) {
@@ -336,7 +348,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                 ),
               ),
               SizedBox(height: 16),
-              
+
               // Information Card
               Card(
                 color: Colors.blue.withOpacity(0.05),
@@ -359,16 +371,28 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                         ],
                       ),
                       SizedBox(height: 12),
-                      _buildInfoStep('1', 'Your claim is submitted with a unique claim number'),
-                      _buildInfoStep('2', 'We\'ll review your claim and contact you within 2-3 business days'),
-                      _buildInfoStep('3', 'You may be asked to provide additional documentation'),
-                      _buildInfoStep('4', 'Once approved, repair/replacement instructions will be provided'),
+                      _buildInfoStep(
+                        '1',
+                        'Your claim is submitted with a unique claim number',
+                      ),
+                      _buildInfoStep(
+                        '2',
+                        'We\'ll review your claim and contact you within 2-3 business days',
+                      ),
+                      _buildInfoStep(
+                        '3',
+                        'You may be asked to provide additional documentation',
+                      ),
+                      _buildInfoStep(
+                        '4',
+                        'Once approved, repair/replacement instructions will be provided',
+                      ),
                     ],
                   ),
                 ),
               ),
               SizedBox(height: 24),
-              
+
               // Submit Button
               SizedBox(
                 width: double.infinity,
@@ -415,14 +439,11 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
                 ),
               ),
               SizedBox(height: 16),
-              
+
               // Disclaimer
               Text(
                 'By submitting this claim, you agree that the information provided is accurate and complete. False claims may result in rejection.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -460,10 +481,7 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
             ),
           ),
         ],

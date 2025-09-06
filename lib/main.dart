@@ -13,6 +13,7 @@ import 'screens/claim_warranty_screen.dart';
 import 'screens/debug_screen.dart';
 import 'screens/debug_products_screen.dart';
 import 'screens/notification_screen.dart';
+import 'screens/claim_tracking_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ class InsureApp extends StatelessWidget {
         '/debug': (context) => DebugScreen(),
         '/debug-products': (context) => DebugProductsScreen(),
         '/notifications': (context) => NotificationScreen(),
+        '/claim-tracking': (context) => ClaimTrackingScreen(),
       },
     );
   }

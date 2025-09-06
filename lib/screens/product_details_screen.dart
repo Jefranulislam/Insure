@@ -44,6 +44,23 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
+  Future<bool> _checkIfProductClaimed() async {
+    if (warrantyId == null) return false;
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('warranty_claims')
+          .where('warrantyId', isEqualTo: warrantyId)
+          .limit(1)
+          .get();
+
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking claim status: $e');
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -144,53 +161,82 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               height: 200,
               color: Colors.white,
               child: imageUrl != null && imageUrl!.isNotEmpty
-                  ? Stack(
-                      children: [
-                        // Loading placeholder
-                        Container(
+                  ? Image.network(
+                      imageUrl!,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
                           width: double.infinity,
                           height: 200,
                           color: Colors.grey[100],
                           child: Center(
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color.fromARGB(255, 136, 136, 136),
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Actual image
-                        Image.network(
-                          imageUrl!,
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.contain,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              width: double.infinity,
-                              height: 200,
-                              color: Colors.grey[100],
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value:
-                                      loadingProgress.expectedTotalBytes != null
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
+                                          loadingProgress.expectedTotalBytes!
                                       : null,
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     Color.fromARGB(255, 136, 136, 136),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            print('Error loading image: $error');
-                            return _buildPlaceholderImage();
-                          },
-                        ),
-                      ],
+                                SizedBox(height: 8),
+                                Text(
+                                  'Loading image...',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        print('❌ Error loading product image: $imageUrl');
+                        print('Error details: $error');
+                        return Container(
+                          width: double.infinity,
+                          height: 200,
+                          color: Colors.red[50],
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.broken_image,
+                                  size: 60,
+                                  color: Colors.red[300],
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Failed to load image',
+                                  style: TextStyle(
+                                    color: Colors.red[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20),
+                                  child: Text(
+                                    'URL: ${imageUrl!.length > 50 ? imageUrl!.substring(0, 50) + '...' : imageUrl!}',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     )
                   : _buildPlaceholderImage(),
             ),
@@ -348,33 +394,82 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ),
       ),
 
-      // Claim Warranty Button
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.all(16),
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.pushNamed(
-              context,
-              '/claim-warranty',
-              arguments: warrantyId,
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFF1E88E5),
-            padding: EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+      // Claim Warranty Section
+      bottomNavigationBar: FutureBuilder<bool>(
+        future: _checkIfProductClaimed(),
+        builder: (context, snapshot) {
+          final bool isClaimed = snapshot.data ?? false;
+
+          return Container(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isClaimed) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      border: Border.all(color: Colors.blue),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.assignment_turned_in, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Warranty Claim Submitted',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/claim-tracking');
+                          },
+                          child: Text('Track Claims'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                ],
+                ElevatedButton(
+                  onPressed: isClaimed
+                      ? null
+                      : () {
+                          Navigator.pushNamed(
+                            context,
+                            '/claim-warranty',
+                            arguments: warrantyId,
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isClaimed
+                        ? Colors.grey
+                        : Color(0xFF1E88E5),
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    isClaimed ? 'Claim Already Submitted' : 'Claim Warranty',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          child: Text(
-            'Claim Warranty',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

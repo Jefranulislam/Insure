@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
+import '../services/manufacturer_email_service.dart';
+import '../services/imgur_service.dart';
 
 class AddProductScreen extends StatefulWidget {
   @override
@@ -22,12 +23,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   DateTime? _purchaseDate;
   int _warrantyMonths = 12;
   String _selectedCategory = 'Electronics';
-  File? _warrantyCardImage;
-  File? _receiptImage;
-  File? _productImage;
-  String? _warrantyCardImagePath;
-  String? _receiptImagePath;
-  String? _productImagePath;
+  XFile? _warrantyCardImage;
+  XFile? _receiptImage;
+  XFile? _productImage;
   bool _isLoading = false;
 
   final ImagePicker _picker = ImagePicker();
@@ -62,16 +60,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   setState(() {
                     switch (type) {
                       case 'warranty':
-                        _warrantyCardImage = kIsWeb ? null : File(image.path);
-                        _warrantyCardImagePath = image.path;
+                        _warrantyCardImage = image;
                         break;
                       case 'receipt':
-                        _receiptImage = kIsWeb ? null : File(image.path);
-                        _receiptImagePath = image.path;
+                        _receiptImage = image;
                         break;
                       case 'product':
-                        _productImage = kIsWeb ? null : File(image.path);
-                        _productImagePath = image.path;
+                        _productImage = image;
                         break;
                     }
                   });
@@ -90,16 +85,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   setState(() {
                     switch (type) {
                       case 'warranty':
-                        _warrantyCardImage = kIsWeb ? null : File(image.path);
-                        _warrantyCardImagePath = image.path;
+                        _warrantyCardImage = image;
                         break;
                       case 'receipt':
-                        _receiptImage = kIsWeb ? null : File(image.path);
-                        _receiptImagePath = image.path;
+                        _receiptImage = image;
                         break;
                       case 'product':
-                        _productImage = kIsWeb ? null : File(image.path);
-                        _productImagePath = image.path;
+                        _productImage = image;
                         break;
                     }
                   });
@@ -112,16 +104,63 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
-  Future<String?> _uploadImage(File image, String folder) async {
-    try {
-      final ref = FirebaseStorage.instance.ref().child(
-        '$folder/${DateTime.now().millisecondsSinceEpoch}',
-      );
+  Future<String?> _uploadImage(XFile? imageFile, String folder) async {
+    if (imageFile == null) return null;
 
-      await ref.putFile(image);
-      return await ref.getDownloadURL();
+    try {
+      print('🚀 Starting Imgur upload for $folder...');
+
+      // Read bytes with size limit
+      final bytes = await imageFile.readAsBytes();
+      print('📊 Image size: ${bytes.length} bytes for file: ${imageFile.name}');
+
+      // Check size limit (data URLs work best with smaller images)
+      if (bytes.length > 2 * 1024 * 1024) {
+        // 2MB limit for data URLs
+        print('❌ Image too large for data URL storage');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Image too large (max 2MB). Please use a smaller image or compress it.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return null;
+      }
+
+      // Generate filename
+      final fileName = '${folder}_${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      
+      print('📤 Processing image with data URL...');
+      
+      // Upload using data URL (instant, no network required)
+      final imageUrl = await ImgurService.uploadImage(bytes, fileName);
+      
+      if (imageUrl != null) {
+        print('✅ Image processed successfully!');
+        print('� Data URL length: ${imageUrl.length} characters');
+        return imageUrl;
+      } else {
+        print('❌ Image processing failed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Image processing failed. Please try a smaller image.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return null;
+      }
     } catch (e) {
-      print('Error uploading image: $e');
+      print('❌ Error uploading image to Imgur: $e');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload error: ${e.toString().length > 100 ? e.toString().substring(0, 100) + '...' : e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
       return null;
     }
   }
@@ -137,34 +176,100 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Upload images
+      print('Starting warranty save process...');
+
+      // Show progress message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Saving warranty...'),
+            ],
+          ),
+          duration: Duration(seconds: 30),
+        ),
+      );
+
       String? warrantyCardUrl;
       String? receiptUrl;
       String? productImageUrl;
 
+      // Try to upload images, but don't fail if uploads fail
       if (_warrantyCardImage != null) {
+        print('📄 Uploading warranty card...');
         warrantyCardUrl = await _uploadImage(
           _warrantyCardImage!,
           'warranty_cards',
         );
+        print('✅ Warranty card result: $warrantyCardUrl');
       }
+
       if (_receiptImage != null) {
+        print('🧾 Uploading receipt...');
         receiptUrl = await _uploadImage(_receiptImage!, 'receipts');
+        print('✅ Receipt result: $receiptUrl');
       }
+
       if (_productImage != null) {
+        print('📸 Uploading product image...');
         productImageUrl = await _uploadImage(_productImage!, 'product_images');
+        print('✅ Product image result: $productImageUrl');
       }
+
+      print('🔄 All uploads completed! Saving to Firestore...');
+      
+      // Check upload success rate
+      final totalImages = (_warrantyCardImage != null ? 1 : 0) + 
+                         (_receiptImage != null ? 1 : 0) + 
+                         (_productImage != null ? 1 : 0);
+      final successfulUploads = (warrantyCardUrl != null ? 1 : 0) + 
+                               (receiptUrl != null ? 1 : 0) + 
+                               (productImageUrl != null ? 1 : 0);
+      
+      print('📊 Upload summary: $successfulUploads/$totalImages images uploaded successfully');
+      
+      if (totalImages > 0 && successfulUploads == 0) {
+        // All uploads failed - show option to save without images
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('All image uploads failed. Saving product without images.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else if (totalImages > 0 && successfulUploads < totalImages) {
+        // Some uploads failed
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Some images failed to upload. Saved $successfulUploads/$totalImages images.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // Get manufacturer email
+      final manufacturerEmail = ManufacturerEmailService.getManufacturerEmail(
+        _brandController.text.trim(),
+      );
 
       // Calculate expiry date
       final expiryDate = _purchaseDate!.add(
         Duration(days: _warrantyMonths * 30),
       );
 
-      // Save to Firestore
-      await FirebaseFirestore.instance.collection('warranties').add({
+      // Prepare warranty data
+      final warrantyData = {
         'userId': FirebaseAuth.instance.currentUser!.uid,
         'productName': _productNameController.text.trim(),
         'brand': _brandController.text.trim(),
+        'manufacturerEmail': manufacturerEmail,
         'serialNumber': _serialNumberController.text.trim(),
         'price': double.tryParse(_priceController.text) ?? 0.0,
         'category': _selectedCategory,
@@ -177,17 +282,152 @@ class _AddProductScreenState extends State<AddProductScreen> {
         'imageUrl': productImageUrl,
         'createdAt': Timestamp.now(),
         'isActive': true,
-      });
+      };
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Warranty saved successfully!')));
+      print('💾 Saving warranty data:');
+      print('- Product: ${warrantyData['productName']}');
+      print('- Brand: ${warrantyData['brand']}');
+      print('- Warranty Card URL: ${warrantyData['warrantyCardUrl']}');
+      print('- Receipt URL: ${warrantyData['receiptUrl']}');
+      print('- Product Image URL: ${warrantyData['imageUrl']}');
+
+      // Save to Firestore with timeout
+      await FirebaseFirestore.instance
+          .collection('warranties')
+          .add(warrantyData)
+          .timeout(Duration(seconds: 15));
+
+      print('Warranty saved successfully!');
+
+      // Hide the progress snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Warranty saved successfully!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
 
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error saving warranty: $e')));
+      print('Error saving warranty: $e');
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving warranty: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveWarrantySimple() async {
+    if (!_formKey.currentState!.validate() || _purchaseDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please fill all required fields')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      print('Starting simple warranty save (no images)...');
+
+      // Show progress message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Saving warranty (no images)...'),
+            ],
+          ),
+          duration: Duration(seconds: 15),
+        ),
+      );
+
+      // Calculate expiry date
+      final expiryDate = _purchaseDate!.add(
+        Duration(days: _warrantyMonths * 30),
+      );
+
+      // Get manufacturer email
+      final manufacturerEmail = ManufacturerEmailService.getManufacturerEmail(
+        _brandController.text.trim(),
+      );
+
+      // Save to Firestore directly without images
+      await FirebaseFirestore.instance
+          .collection('warranties')
+          .add({
+            'userId': FirebaseAuth.instance.currentUser!.uid,
+            'productName': _productNameController.text.trim(),
+            'brand': _brandController.text.trim(),
+            'manufacturerEmail': manufacturerEmail,
+            'serialNumber': _serialNumberController.text.trim(),
+            'price': double.tryParse(_priceController.text) ?? 0.0,
+            'category': _selectedCategory,
+            'purchaseDate': Timestamp.fromDate(_purchaseDate!),
+            'warrantyMonths': _warrantyMonths,
+            'expiryDate': Timestamp.fromDate(expiryDate),
+            'notes': _notesController.text.trim(),
+            'warrantyCardUrl': null,
+            'receiptUrl': null,
+            'imageUrl': null,
+            'createdAt': Timestamp.now(),
+            'isActive': true,
+          })
+          .timeout(Duration(seconds: 10));
+
+      print('Simple warranty saved successfully!');
+
+      // Hide the progress snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Warranty saved successfully (no images)!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      print('Error saving simple warranty: $e');
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving warranty: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+        ),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
@@ -221,15 +461,40 @@ class _AddProductScreenState extends State<AddProductScreen> {
             ),
             SizedBox(height: 16),
 
-            // Brand
-            TextFormField(
-              controller: _brandController,
-              decoration: InputDecoration(
-                labelText: 'Brand *',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) =>
-                  value?.isEmpty == true ? 'Brand is required' : null,
+            // Brand Autocomplete
+            Autocomplete<String>(
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text.length < 2) {
+                  return const Iterable<String>.empty();
+                }
+                final suggestions =
+                    ManufacturerEmailService.searchManufacturers(
+                      textEditingValue.text,
+                    );
+                return suggestions.take(
+                  5,
+                ); // Limit to 5 suggestions for performance
+              },
+              onSelected: (String selection) {
+                _brandController.text = selection;
+              },
+              fieldViewBuilder:
+                  (context, controller, focusNode, onEditingComplete) {
+                    return TextFormField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onEditingComplete: onEditingComplete,
+                      decoration: InputDecoration(
+                        labelText: 'Brand *',
+                        border: OutlineInputBorder(),
+                        hintText: 'Type manufacturer name...',
+                        suffixIcon: Icon(Icons.search),
+                      ),
+                      validator: (value) =>
+                          value?.isEmpty == true ? 'Brand is required' : null,
+                      onChanged: (value) => _brandController.text = value,
+                    );
+                  },
             ),
             SizedBox(height: 16),
 
@@ -373,15 +638,105 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 ),
               ),
               child: _isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text(
-                      'Save Warranty',
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Saving...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.save, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'Save Warranty',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+
+            SizedBox(height: 12),
+
+            // Secondary save button without images
+            OutlinedButton(
+              onPressed: _isLoading ? null : () => _saveWarrantySimple(),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Color.fromARGB(255, 68, 68, 68)),
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.save_outlined,
+                    color: Color.fromARGB(255, 68, 68, 68),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Save Without Images (Faster)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 68, 68, 68),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Help text
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Colors.green[600],
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Images now save instantly using optimized data storage! Works perfectly on web and mobile. Keep images under 2MB for best performance.',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: Colors.green[700],
+                        fontSize: 12,
                       ),
                     ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -389,18 +744,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
-  Widget _buildImagePickerCard(String title, File? image, VoidCallback onTap) {
-    String? imagePath;
-
-    // Get the image path for web compatibility
-    if (title.contains('Warranty')) {
-      imagePath = _warrantyCardImagePath;
-    } else if (title.contains('Receipt')) {
-      imagePath = _receiptImagePath;
-    } else if (title.contains('Product')) {
-      imagePath = _productImagePath;
-    }
-
+  Widget _buildImagePickerCard(String title, XFile? image, VoidCallback onTap) {
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -416,14 +760,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: (image != null || imagePath != null)
+                child: image != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: kIsWeb && imagePath != null
-                            ? Image.network(imagePath!, fit: BoxFit.cover)
-                            : image != null && !kIsWeb
-                            ? Image.file(image, fit: BoxFit.cover)
-                            : Container(),
+                        child: Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 30,
+                        ),
                       )
                     : Icon(
                         Icons.add_a_photo,
@@ -445,8 +789,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       ),
                     ),
                     Text(
-                      image != null ? 'Tap to change' : 'Tap to add photo',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      image != null
+                          ? '✓ Image selected - Tap to change'
+                          : 'Tap to add photo',
+                      style: TextStyle(
+                        color: image != null
+                            ? Colors.green[600]
+                            : Colors.grey[600],
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),

@@ -92,9 +92,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/debug');
               } else if (value == 'debug-products') {
                 Navigator.pushNamed(context, '/debug-products');
+              } else if (value == 'claim-tracking') {
+                Navigator.pushNamed(context, '/claim-tracking');
               }
             },
             itemBuilder: (BuildContext context) => [
+              PopupMenuItem(
+                value: 'claim-tracking',
+                child: Text('Track Claims'),
+              ),
               PopupMenuItem(value: 'debug', child: Text('Debug Data')),
               PopupMenuItem(
                 value: 'debug-products',
@@ -457,77 +463,49 @@ class WarrantyCard extends StatelessWidget {
                 child: imageUrl != null && imageUrl!.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Stack(
-                          children: [
-                            // Loading placeholder
-                            Container(
+                        child: Image.network(
+                          imageUrl!,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
                               width: 60,
                               height: 60,
-                              color: Colors.grey[200],
+                              color: Colors.grey[100],
                               child: Center(
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     Color.fromARGB(255, 136, 136, 136),
                                   ),
                                 ),
                               ),
-                            ),
-                            // Actual image
-                            Image.network(
-                              imageUrl!,
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print('❌ Error loading image: $imageUrl');
+                            print('Error details: $error');
+                            return Container(
                               width: 60,
                               height: 60,
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      width: 60,
-                                      height: 60,
-                                      color: Colors.grey[100],
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
-                                              : null,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                Color.fromARGB(
-                                                  255,
-                                                  136,
-                                                  136,
-                                                  136,
-                                                ),
-                                              ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[100],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.inventory,
-                                    color: Colors.grey[400],
-                                    size: 25,
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.broken_image,
+                                color: Colors.red[300],
+                                size: 25,
+                              ),
+                            );
+                          },
                         ),
                       )
                     : Container(
