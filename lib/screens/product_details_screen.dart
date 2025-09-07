@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../services/cloudinary_service.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   @override
@@ -109,12 +110,62 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final serialNumber = warrantyData!['serialNumber'] ?? '';
     final price = warrantyData!['price']?.toDouble() ?? 0.0;
     final notes = warrantyData!['notes'] ?? '';
-    final purchaseDate = (warrantyData!['purchaseDate'] as Timestamp).toDate();
-    final expiryDate = (warrantyData!['expiryDate'] as Timestamp).toDate();
+
+    // Safe timestamp handling
+    DateTime purchaseDate;
+    DateTime expiryDate;
+
+    try {
+      final purchaseTimestamp = warrantyData!['purchaseDate'];
+      if (purchaseTimestamp != null) {
+        if (purchaseTimestamp is Timestamp) {
+          purchaseDate = purchaseTimestamp.toDate();
+        } else if (purchaseTimestamp is String) {
+          // Handle string dates like "7/8/2025"
+          try {
+            final parts = purchaseTimestamp.split('/');
+            if (parts.length == 3) {
+              purchaseDate = DateTime(
+                int.parse(parts[2]), // year
+                int.parse(parts[0]), // month
+                int.parse(parts[1]), // day
+              );
+            } else {
+              purchaseDate = DateTime.now();
+            }
+          } catch (e) {
+            print('❌ Error parsing string date: $e');
+            purchaseDate = DateTime.now();
+          }
+        } else {
+          purchaseDate = DateTime.now();
+        }
+      } else {
+        purchaseDate = DateTime.now();
+      }
+    } catch (e) {
+      print('❌ Error parsing purchaseDate in product details: $e');
+      purchaseDate = DateTime.now();
+    }
+
+    try {
+      final expiryTimestamp = warrantyData!['expiryDate'];
+      expiryDate = expiryTimestamp != null
+          ? (expiryTimestamp as Timestamp).toDate()
+          : DateTime.now().add(Duration(days: 365));
+    } catch (e) {
+      print('❌ Error parsing expiryDate in product details: $e');
+      expiryDate = DateTime.now().add(Duration(days: 365));
+    }
+
     final warrantyMonths = warrantyData!['warrantyMonths'] ?? 0;
-    final imageUrl = warrantyData!['imageUrl'];
-    final warrantyCardUrl = warrantyData!['warrantyCardUrl'];
-    final receiptUrl = warrantyData!['receiptUrl'];
+    final imageUrl =
+        warrantyData!['productImageUrl'] ?? warrantyData!['imageUrl'];
+    final warrantyCardUrl =
+        warrantyData!['warrantyCardImageUrl'] ??
+        warrantyData!['warrantyCardUrl'];
+    final receiptUrl =
+        warrantyData!['receiptImageUrl'] ?? warrantyData!['receiptUrl'];
 
     final daysLeft = expiryDate.difference(DateTime.now()).inDays;
     final isExpiringSoon = daysLeft <= 30;
@@ -162,7 +213,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               color: Colors.white,
               child: imageUrl != null && imageUrl!.isNotEmpty
                   ? Image.network(
-                      imageUrl!,
+                      CloudinaryService.getMediumUrl(imageUrl!),
                       width: double.infinity,
                       height: 200,
                       fit: BoxFit.contain,
@@ -177,10 +228,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
+                                            loadingProgress.expectedTotalBytes!
                                       : null,
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     Color.fromARGB(255, 136, 136, 136),
@@ -429,7 +480,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushNamed(context, '/claim-tracking');
+                            Navigator.pushNamed(
+                              context,
+                              '/claim-tracking',
+                              arguments: {
+                                'warrantyId': warrantyId,
+                                'productName':
+                                    warrantyData!['productName'] ?? '',
+                              },
+                            );
                           },
                           child: Text('Track Claims'),
                         ),
@@ -573,7 +632,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   maxHeight: MediaQuery.of(context).size.height * 0.7,
                 ),
                 child: Image.network(
-                  imageUrl,
+                  CloudinaryService.getMediumUrl(imageUrl),
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(

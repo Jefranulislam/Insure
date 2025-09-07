@@ -39,7 +39,7 @@ class AboutScreen extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.asset(
-                        'assets/images/iconINSURESO.webp',
+                        'assets/images/insure logo.webp',
                         width: 100,
                         height: 100,
                         fit: BoxFit.cover,
@@ -80,6 +80,40 @@ class AboutScreen extends StatelessWidget {
             _buildSection(
               'Our Mission',
               'INSURE is designed to help you keep track of all your product warranties in one secure place. Never worry about losing warranty cards or missing expiry dates again.',
+            ),
+
+            // Development Team Section
+            _buildSection(
+              'Development Team',
+              null,
+              child: Column(
+                children: [
+                  _buildTeamMember(
+                    'Jefranul Islam Rakib',
+                    '221002812',
+                    'Project Lead & Backend Developer',
+                    Icons.person,
+                  ),
+                  _buildTeamMember(
+                    'Abrar Ahmed',
+                    '221004712',
+                    'Frontend Developer & UI/UX Designer',
+                    Icons.person,
+                  ),
+                  _buildTeamMember(
+                    'Amisha Paul',
+                    '221001112',
+                    'Database Designer & Quality Assurance',
+                    Icons.person,
+                  ),
+                  _buildTeamMember(
+                    'Md Reyad',
+                    '221000112',
+                    'Mobile App Developer & Testing Specialist',
+                    Icons.person,
+                  ),
+                ],
+              ),
             ),
 
             // Features Section
@@ -219,7 +253,7 @@ class AboutScreen extends StatelessWidget {
             // Copyright
             SizedBox(height: 20),
             Text(
-              '© 2024 INSURE App. All rights reserved.',
+              '© 2025 INSURE App. All rights reserved.',
               style: TextStyle(color: Colors.grey[500], fontSize: 12),
             ),
           ],
@@ -338,6 +372,68 @@ class AboutScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTeamMember(String name, String id, String role, IconData icon) {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(0xFFF0F4F6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Color(0xFF1E88E5).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: Icon(
+              icon,
+              color: Color(0xFF1E88E5),
+              size: 24,
+            ),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 68, 68, 68),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'ID: $id',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF1E88E5),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  role,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

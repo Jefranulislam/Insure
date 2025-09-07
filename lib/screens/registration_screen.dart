@@ -14,7 +14,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
@@ -22,7 +22,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth = 
+      final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
@@ -52,15 +52,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // App Logo
-              Icon(
-                Icons.security,
-                size: 80,
-                color: Color(0xFF1E88E5),
-              ),
+              Icon(Icons.security, size: 80, color: Color(0xFF1E88E5)),
               SizedBox(height: 20),
-              
+
               Text(
-                'Welcome to INSURE',
+                'Welcome to INSURESO',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -68,25 +64,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
               SizedBox(height: 10),
-              
+
               Text(
                 'Sign in to manage your warranties',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               ),
               SizedBox(height: 60),
-              
+
               // Google Sign In Button
               _isLoading
                   ? CircularProgressIndicator()
                   : ElevatedButton.icon(
                       onPressed: _signInWithGoogle,
-                      icon: Icon(
-                        Icons.g_mobiledata,
-                        size: 24,
-                      ),
+                      icon: Icon(Icons.g_mobiledata, size: 24),
                       label: Text(
                         'Continue with Google',
                         style: TextStyle(fontSize: 16),
@@ -106,15 +96,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                     ),
               SizedBox(height: 40),
-              
+
               // Terms and Privacy
               Text(
                 'By continuing, you agree to our Terms of Service and Privacy Policy',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ),

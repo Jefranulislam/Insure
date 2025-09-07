@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/notification_service.dart';
+import '../services/cloudinary_service.dart';
+import '../services/data_migration_service.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -94,6 +96,43 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/debug-products');
               } else if (value == 'claim-tracking') {
                 Navigator.pushNamed(context, '/claim-tracking');
+              } else if (value == 'fix-timestamps') {
+                // Show loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => AlertDialog(
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Fixing null timestamps...'),
+                      ],
+                    ),
+                  ),
+                );
+
+                try {
+                  await DataMigrationService.runFullMigration();
+                  Navigator.pop(context); // Close loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '✅ Timestamp migration completed successfully!',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  Navigator.pop(context); // Close loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Migration failed: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             itemBuilder: (BuildContext context) => [
@@ -105,6 +144,10 @@ class _HomeScreenState extends State<HomeScreen> {
               PopupMenuItem(
                 value: 'debug-products',
                 child: Text('Debug Products'),
+              ),
+              PopupMenuItem(
+                value: 'fix-timestamps',
+                child: Text('🔧 Fix Null Timestamps'),
               ),
               PopupMenuItem(value: 'logout', child: Text('Logout')),
             ],
@@ -282,8 +325,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 warranties.sort((a, b) {
                   var aData = a.data() as Map<String, dynamic>;
                   var bData = b.data() as Map<String, dynamic>;
-                  var aCreated = aData['createdAt'] as Timestamp?;
-                  var bCreated = bData['createdAt'] as Timestamp?;
+
+                  // Handle createdAt field safely
+                  Timestamp? aCreated;
+                  Timestamp? bCreated;
+
+                  try {
+                    aCreated = aData['createdAt'] as Timestamp?;
+                  } catch (e) {
+                    print('Error parsing createdAt for document ${a.id}: $e');
+                    aCreated = null;
+                  }
+
+                  try {
+                    bCreated = bData['createdAt'] as Timestamp?;
+                  } catch (e) {
+                    print('Error parsing createdAt for document ${b.id}: $e');
+                    bCreated = null;
+                  }
 
                   if (aCreated == null && bCreated == null) return 0;
                   if (aCreated == null) return 1;
@@ -313,12 +372,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemCount: warranties.length,
                   itemBuilder: (context, index) {
                     var data = warranties[index].data() as Map<String, dynamic>;
+
+                    // Get the product image URL (prioritize productImageUrl, fallback to old imageUrl)
+                    String? imageUrl =
+                        data['productImageUrl'] ?? data['imageUrl'];
+
+                    // Safe timestamp handling
+                    DateTime expiryDate;
+                    try {
+                      final expiryTimestamp = data['expiryDate'];
+                      if (expiryTimestamp != null) {
+                        expiryDate = (expiryTimestamp as Timestamp).toDate();
+                      } else {
+                        // Fallback to a future date if no expiry date
+                        expiryDate = DateTime.now().add(Duration(days: 365));
+                        print(
+                          '⚠️ Warning: Warranty ${warranties[index].id} has null expiryDate, using fallback',
+                        );
+                      }
+                    } catch (e) {
+                      print(
+                        '❌ Error parsing expiryDate for warranty ${warranties[index].id}: $e',
+                      );
+                      expiryDate = DateTime.now().add(Duration(days: 365));
+                    }
+
                     return WarrantyCard(
                       warrantyId: warranties[index].id,
                       productName: data['productName'] ?? '',
                       brand: data['brand'] ?? '',
-                      expiryDate: (data['expiryDate'] as Timestamp).toDate(),
-                      imageUrl: data['imageUrl'],
+                      expiryDate: expiryDate,
+                      imageUrl: imageUrl,
                     );
                   },
                 );
@@ -464,7 +548,10 @@ class WarrantyCard extends StatelessWidget {
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.network(
-                          imageUrl!,
+                          CloudinaryService.getThumbnailUrl(
+                            imageUrl!,
+                            size: 120,
+                          ),
                           width: 60,
                           height: 60,
                           fit: BoxFit.cover,
@@ -477,10 +564,10 @@ class WarrantyCard extends StatelessWidget {
                               child: Center(
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  value: loadingProgress.expectedTotalBytes !=
-                                          null
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
                                       ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
+                                            loadingProgress.expectedTotalBytes!
                                       : null,
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     Color.fromARGB(255, 136, 136, 136),

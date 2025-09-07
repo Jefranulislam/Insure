@@ -37,7 +37,7 @@ class InsureApp extends StatelessWidget {
         '/welcome': (context) => WelcomeScreen(),
         '/registration': (context) => RegistrationScreen(),
         '/home': (context) => HomeScreen(),
-        '/add-product': (context) => AddProductScreen(),
+        '/add-product': (context) => const AddProductScreen(),
         '/all-products': (context) => AllProductsScreen(),
         '/product-details': (context) => ProductDetailsScreen(),
         '/about': (context) => AboutScreen(),

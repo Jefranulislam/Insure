@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/manufacturer_email_service.dart';
 
 class ClaimWarrantyScreen extends StatefulWidget {
@@ -61,6 +62,80 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
     }
   }
 
+  Future<void> _sendEmailToManufacturer(String claimNumber) async {
+    try {
+      final brand = warrantyData!['brand'] ?? '';
+      final email = ManufacturerEmailService.getManufacturerEmail(brand);
+      
+      if (email == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ No email found for $brand. Please contact them directly.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+
+      final productName = warrantyData!['productName'] ?? 'Product';
+      final user = FirebaseAuth.instance.currentUser;
+      final customerName = user?.displayName ?? 'Customer';
+      final customerEmail = user?.email ?? '';
+      
+      final subject = Uri.encodeComponent('Warranty Claim: $productName - Claim #$claimNumber');
+      final body = Uri.encodeComponent('''
+Dear $brand Support Team,
+
+I am submitting a warranty claim for the following product:
+
+Product Name: $productName
+Brand: $brand
+Claim Number: $claimNumber
+Issue Type: $_selectedIssueType
+Issue Title: ${_issueController.text.trim()}
+
+Description:
+${_descriptionController.text.trim()}
+
+Customer Information:
+Name: $customerName
+Email: $customerEmail
+
+Please review this claim and provide an update on the warranty coverage and next steps.
+
+Thank you for your assistance.
+
+Best regards,
+$customerName
+      ''');
+
+      final emailUri = Uri.parse('mailto:$email?subject=$subject&body=$body');
+      
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+        print('✅ Email client opened for $brand at $email');
+      } else {
+        print('❌ Could not open email client');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not open email client. Please email $brand at $email manually.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error sending email: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error opening email client. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _submitClaim() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -73,6 +148,9 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
       final brand = warrantyData!['brand'] ?? '';
       final companyEmail =
           ManufacturerEmailService.getManufacturerEmail(brand) ?? '';
+
+      // Generate claim number
+      final claimNumber = 'CLM${DateTime.now().millisecondsSinceEpoch}';
 
       // Create a warranty claim document
       await FirebaseFirestore.instance.collection('warranty_claims').add({
@@ -87,17 +165,45 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
         'status': 'submitted',
         'claimDate': Timestamp.now(),
         'createdAt': Timestamp.now(),
-        'claimNumber': 'CLM${DateTime.now().millisecondsSinceEpoch}',
+        'claimNumber': claimNumber,
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Warranty claim submitted successfully!'),
-          backgroundColor: Colors.green,
+      // Automatically send email to manufacturer
+      await _sendEmailToManufacturer(claimNumber);
+
+      // Show success dialog with email confirmation
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('✅ Claim Submitted Successfully!'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Claim Number: $claimNumber'),
+              SizedBox(height: 8),
+              Text('Email sent to: $brand'),
+              if (companyEmail.isNotEmpty) 
+                Text('($companyEmail)', style: TextStyle(color: Colors.grey[600])),
+              SizedBox(height: 16),
+              Text('Your email client should have opened automatically. If not, you can resend the email from the claim tracking screen.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('View Claims'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+              child: Text('Done'),
+            ),
+          ],
         ),
       );
-
-      Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -150,7 +256,19 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
 
     final productName = warrantyData!['productName'] ?? '';
     final brand = warrantyData!['brand'] ?? '';
-    final expiryDate = (warrantyData!['expiryDate'] as Timestamp).toDate();
+
+    // Safe timestamp handling
+    DateTime expiryDate;
+    try {
+      final expiryTimestamp = warrantyData!['expiryDate'];
+      expiryDate = expiryTimestamp != null
+          ? (expiryTimestamp as Timestamp).toDate()
+          : DateTime.now().add(Duration(days: 365));
+    } catch (e) {
+      print('❌ Error parsing expiryDate in claim warranty: $e');
+      expiryDate = DateTime.now().add(Duration(days: 365));
+    }
+
     final daysLeft = expiryDate.difference(DateTime.now()).inDays;
     final isExpired = daysLeft < 0;
 

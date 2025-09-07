@@ -18,9 +18,16 @@ class NotificationService {
           // Count products expiring in 30 days or less
           var expiringCount = snapshot.docs.where((doc) {
             var data = doc.data();
-            var expiryDate = (data['expiryDate'] as Timestamp).toDate();
-            var daysLeft = expiryDate.difference(DateTime.now()).inDays;
-            return daysLeft <= 30; // 30 days or less
+            try {
+              final expiryTimestamp = data['expiryDate'];
+              if (expiryTimestamp == null) return false;
+              var expiryDate = (expiryTimestamp as Timestamp).toDate();
+              var daysLeft = expiryDate.difference(DateTime.now()).inDays;
+              return daysLeft <= 30; // 30 days or less
+            } catch (e) {
+              print('❌ Error parsing expiryDate in notification service: $e');
+              return false;
+            }
           }).length;
 
           return expiringCount;
@@ -44,9 +51,18 @@ class NotificationService {
           var expiringProducts = snapshot.docs
               .where((doc) {
                 var data = doc.data();
-                var expiryDate = (data['expiryDate'] as Timestamp).toDate();
-                var daysLeft = expiryDate.difference(DateTime.now()).inDays;
-                return daysLeft <= 30; // 30 days or less
+                try {
+                  final expiryTimestamp = data['expiryDate'];
+                  if (expiryTimestamp == null) return false;
+                  var expiryDate = (expiryTimestamp as Timestamp).toDate();
+                  var daysLeft = expiryDate.difference(DateTime.now()).inDays;
+                  return daysLeft <= 30; // 30 days or less
+                } catch (e) {
+                  print(
+                    '❌ Error parsing expiryDate in getExpiringProducts: $e',
+                  );
+                  return false;
+                }
               })
               .map((doc) {
                 var data = doc.data();
@@ -57,11 +73,16 @@ class NotificationService {
 
           // Sort by days remaining (most urgent first)
           expiringProducts.sort((a, b) {
-            var aExpiry = (a['expiryDate'] as Timestamp).toDate();
-            var bExpiry = (b['expiryDate'] as Timestamp).toDate();
-            var aDays = aExpiry.difference(DateTime.now()).inDays;
-            var bDays = bExpiry.difference(DateTime.now()).inDays;
-            return aDays.compareTo(bDays);
+            try {
+              var aExpiry = (a['expiryDate'] as Timestamp).toDate();
+              var bExpiry = (b['expiryDate'] as Timestamp).toDate();
+              var aDays = aExpiry.difference(DateTime.now()).inDays;
+              var bDays = bExpiry.difference(DateTime.now()).inDays;
+              return aDays.compareTo(bDays);
+            } catch (e) {
+              print('❌ Error sorting expiring products: $e');
+              return 0;
+            }
           });
 
           return expiringProducts;

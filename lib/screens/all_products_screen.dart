@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/cloudinary_service.dart';
 
 class AllProductsScreen extends StatefulWidget {
   @override
@@ -262,16 +263,62 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                   itemCount: warranties.length,
                   itemBuilder: (context, index) {
                     var data = warranties[index].data() as Map<String, dynamic>;
+                    // Safe timestamp handling
+                    DateTime expiryDate;
+                    DateTime purchaseDate;
+
+                    try {
+                      final expiryTimestamp = data['expiryDate'];
+                      expiryDate = expiryTimestamp != null
+                          ? (expiryTimestamp as Timestamp).toDate()
+                          : DateTime.now().add(Duration(days: 365));
+                    } catch (e) {
+                      print('❌ Error parsing expiryDate: $e');
+                      expiryDate = DateTime.now().add(Duration(days: 365));
+                    }
+
+                    try {
+                      final purchaseTimestamp = data['purchaseDate'];
+                      if (purchaseTimestamp != null) {
+                        if (purchaseTimestamp is Timestamp) {
+                          purchaseDate = purchaseTimestamp.toDate();
+                        } else if (purchaseTimestamp is String) {
+                          // Handle string dates like "7/8/2025"
+                          try {
+                            final parts = purchaseTimestamp.split('/');
+                            if (parts.length == 3) {
+                              purchaseDate = DateTime(
+                                int.parse(parts[2]), // year
+                                int.parse(parts[0]), // month
+                                int.parse(parts[1]), // day
+                              );
+                            } else {
+                              purchaseDate = DateTime.now();
+                            }
+                          } catch (e) {
+                            print('❌ Error parsing string date: $e');
+                            purchaseDate = DateTime.now();
+                          }
+                        } else {
+                          purchaseDate = DateTime.now();
+                        }
+                      } else {
+                        purchaseDate = DateTime.now();
+                      }
+                    } catch (e) {
+                      print('❌ Error parsing purchaseDate: $e');
+                      purchaseDate = DateTime.now();
+                    }
+
                     return ProductCard(
                       warrantyId: warranties[index].id,
                       productName: data['productName'] ?? '',
                       brand: data['brand'] ?? '',
                       category: data['category'] ?? '',
-                      expiryDate: (data['expiryDate'] as Timestamp).toDate(),
-                      purchaseDate: (data['purchaseDate'] as Timestamp)
-                          .toDate(),
+                      expiryDate: expiryDate,
+                      purchaseDate: purchaseDate,
                       price: data['price']?.toDouble() ?? 0.0,
-                      imageUrl: data['imageUrl'],
+                      imageUrl: data['productImageUrl'] ?? data['imageUrl'],
                     );
                   },
                 );
@@ -357,7 +404,10 @@ class ProductCard extends StatelessWidget {
                             ),
                             // Actual image
                             Image.network(
-                              imageUrl!,
+                              CloudinaryService.getThumbnailUrl(
+                                imageUrl!,
+                                size: 160,
+                              ),
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,

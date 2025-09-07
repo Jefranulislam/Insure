@@ -3,14 +3,19 @@ import 'dart:typed_data';
 
 class ImgurService {
   /// Upload image using base64 data URLs - works perfectly in browsers
-  static Future<String?> uploadImage(Uint8List imageBytes, String filename) async {
+  static Future<String?> uploadImage(
+    Uint8List imageBytes,
+    String filename,
+  ) async {
     try {
       print('🔄 Processing image: $filename');
       print('📊 Image size: ${imageBytes.length} bytes');
 
       // For web, use data URLs which work perfectly without external APIs
-      if (imageBytes.length > 2 * 1024 * 1024) { // 2MB limit
-        print('❌ Image too large for data URL');
+      // Limit to 500KB to prevent browser crashes and Firestore document size issues
+      if (imageBytes.length > 500 * 1024) {
+        // 500KB limit for stability
+        print('❌ Image too large for data URL (max 500KB)');
         return null;
       }
 
@@ -18,10 +23,10 @@ class ImgurService {
       final base64Image = base64Encode(imageBytes);
       final mimeType = _getMimeType(filename);
       final dataUrl = 'data:$mimeType;base64,$base64Image';
-      
+
       print('✅ Image converted to data URL successfully!');
       print('� Data URL length: ${dataUrl.length} characters');
-      
+
       return dataUrl;
     } catch (e) {
       print('❌ Error processing image: $e');
@@ -50,24 +55,23 @@ class ImgurService {
     List<String> filenames,
   ) async {
     final List<String?> urls = [];
-    
+
     for (int i = 0; i < imageBytesList.length; i++) {
       final url = await uploadImage(imageBytesList[i], filenames[i]);
       urls.add(url);
     }
-    
+
     return urls;
   }
 
   /// Check if URL is a valid image URL
   static bool isValidImageUrl(String url) {
     return url.startsWith('data:image/') ||
-           url.startsWith('https://') && (
-             url.contains('.jpg') || 
-             url.contains('.jpeg') || 
-             url.contains('.png') || 
-             url.contains('.gif')
-           );
+        url.startsWith('https://') &&
+            (url.contains('.jpg') ||
+                url.contains('.jpeg') ||
+                url.contains('.png') ||
+                url.contains('.gif'));
   }
 
   /// Compress image if too large (basic compression)
