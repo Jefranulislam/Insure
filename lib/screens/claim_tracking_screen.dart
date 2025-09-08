@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -133,19 +134,67 @@ ${FirebaseAuth.instance.currentUser?.email ?? ''}
 
       final emailUri = Uri.parse('mailto:$email?subject=$subject&body=$body');
 
-      if (await canLaunchUrl(emailUri)) {
-        await launchUrl(emailUri);
+      try {
+        if (await canLaunchUrl(emailUri)) {
+          await launchUrl(
+            emailUri,
+            mode: LaunchMode.externalApplication, // Force external app
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Email client opened for $brand'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          // Fallback: try Gmail or show manual options
+          final gmailUri = Uri.parse(
+            'googlegmail://co?to=$email&subject=$subject&body=$body',
+          );
+          if (await canLaunchUrl(gmailUri)) {
+            await launchUrl(gmailUri, mode: LaunchMode.externalApplication);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ Gmail app opened for $brand'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('❌ Could not open email client. Email: $email'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'Copy Email',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: email));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('📋 Email address copied!'),
+                        backgroundColor: Colors.blue,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print('❌ Error launching email: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ Email client opened for $brand'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Could not open email client'),
+            content: Text('❌ Email error. Contact: $email'),
             backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Copy',
+              textColor: Colors.white,
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: email));
+              },
+            ),
           ),
         );
       }

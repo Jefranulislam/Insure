@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/manufacturer_email_service.dart';
 
@@ -66,11 +66,13 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
     try {
       final brand = warrantyData!['brand'] ?? '';
       final email = ManufacturerEmailService.getManufacturerEmail(brand);
-      
+
       if (email == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ No email found for $brand. Please contact them directly.'),
+            content: Text(
+              '❌ No email found for $brand. Please contact them directly.',
+            ),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 4),
           ),
@@ -82,8 +84,10 @@ class _ClaimWarrantyScreenState extends State<ClaimWarrantyScreen> {
       final user = FirebaseAuth.instance.currentUser;
       final customerName = user?.displayName ?? 'Customer';
       final customerEmail = user?.email ?? '';
-      
-      final subject = Uri.encodeComponent('Warranty Claim: $productName - Claim #$claimNumber');
+
+      final subject = Uri.encodeComponent(
+        'Warranty Claim: $productName - Claim #$claimNumber',
+      );
       final body = Uri.encodeComponent('''
 Dear $brand Support Team,
 
@@ -111,19 +115,33 @@ $customerName
       ''');
 
       final emailUri = Uri.parse('mailto:$email?subject=$subject&body=$body');
-      
-      if (await canLaunchUrl(emailUri)) {
-        await launchUrl(emailUri);
-        print('✅ Email client opened for $brand at $email');
-      } else {
-        print('❌ Could not open email client');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not open email client. Please email $brand at $email manually.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 5),
-          ),
-        );
+
+      try {
+        if (await canLaunchUrl(emailUri)) {
+          await launchUrl(
+            emailUri,
+            mode: LaunchMode.externalApplication, // Force external app
+          );
+          print('✅ Email client opened for $brand at $email');
+        } else {
+          // Fallback: try launching with different parameters
+          print('❌ Standard email launch failed, trying fallback...');
+
+          // Try launching Gmail directly if available
+          final gmailUri = Uri.parse(
+            'googlegmail://co?to=$email&subject=$subject&body=$body',
+          );
+          if (await canLaunchUrl(gmailUri)) {
+            await launchUrl(gmailUri, mode: LaunchMode.externalApplication);
+            print('✅ Gmail app opened for $brand at $email');
+          } else {
+            // Show manual email info
+            _showManualEmailDialog(email, subject, body, brand);
+          }
+        }
+      } catch (e) {
+        print('❌ Error launching email: $e');
+        _showManualEmailDialog(email, subject, body, brand);
       }
     } catch (e) {
       print('❌ Error sending email: $e');
@@ -134,6 +152,117 @@ $customerName
         ),
       );
     }
+  }
+
+  void _showManualEmailDialog(
+    String email,
+    String subject,
+    String body,
+    String brand,
+  ) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.email, color: Color(0xFF1E88E5)),
+              SizedBox(width: 8),
+              Text('Email Details'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Could not open email client automatically. Please send an email manually with these details:',
+                  style: TextStyle(fontSize: 14),
+                ),
+                SizedBox(height: 16),
+                _buildEmailDetailRow('To:', email),
+                _buildEmailDetailRow('Subject:', Uri.decodeComponent(subject)),
+                SizedBox(height: 8),
+                Text('Message:', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Text(
+                    Uri.decodeComponent(body),
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Try to copy email to clipboard
+                _copyEmailToClipboard(email, subject, body);
+              },
+              child: Text('Copy Email'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmailDetailRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: SelectableText(value, style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyEmailToClipboard(String email, String subject, String body) {
+    final emailContent =
+        '''
+To: $email
+Subject: ${Uri.decodeComponent(subject)}
+
+${Uri.decodeComponent(body)}
+''';
+
+    Clipboard.setData(ClipboardData(text: emailContent));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📋 Email details copied to clipboard!'),
+        backgroundColor: Colors.green,
+        action: SnackBarAction(
+          label: 'Open Email App',
+          textColor: Colors.white,
+          onPressed: () {
+            // Try to open any email app
+            launchUrl(Uri.parse('mailto:'));
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _submitClaim() async {
@@ -183,10 +312,15 @@ $customerName
               Text('Claim Number: $claimNumber'),
               SizedBox(height: 8),
               Text('Email sent to: $brand'),
-              if (companyEmail.isNotEmpty) 
-                Text('($companyEmail)', style: TextStyle(color: Colors.grey[600])),
+              if (companyEmail.isNotEmpty)
+                Text(
+                  '($companyEmail)',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
               SizedBox(height: 16),
-              Text('Your email client should have opened automatically. If not, you can resend the email from the claim tracking screen.'),
+              Text(
+                'Your email client should have opened automatically. If not, you can resend the email from the claim tracking screen.',
+              ),
             ],
           ),
           actions: [

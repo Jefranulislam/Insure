@@ -57,12 +57,25 @@ class _NotificationScreenState extends State<NotificationScreen> {
             );
           }
 
-          // Filter products that are expiring soon (30 days or less)
+          // Filter products that are expiring soon (30 days or less) OR already expired
           var expiringProducts = snapshot.data!.docs.where((doc) {
             var data = doc.data() as Map<String, dynamic>;
-            var expiryDate = (data['expiryDate'] as Timestamp).toDate();
+
+            // Safe timestamp handling
+            DateTime expiryDate;
+            try {
+              final expiryTimestamp = data['expiryDate'];
+              expiryDate = expiryTimestamp != null
+                  ? (expiryTimestamp as Timestamp).toDate()
+                  : DateTime.now().add(Duration(days: 365));
+            } catch (e) {
+              print('❌ Error parsing expiryDate in filter: $e');
+              expiryDate = DateTime.now().add(Duration(days: 365));
+            }
+
             var daysLeft = expiryDate.difference(DateTime.now()).inDays;
-            return daysLeft <= 30; // 30 days or less
+            // Show products that are expired OR expiring within 30 days
+            return daysLeft <= 30;
           }).toList();
 
           // Sort by days remaining (most urgent first)
@@ -127,12 +140,56 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               color: Colors.orange[800],
                             ),
                           ),
-                          Text(
-                            '${expiringProducts.length} ${expiringProducts.length == 1 ? 'product' : 'products'} expiring soon',
-                            style: TextStyle(
-                              color: Colors.orange[700],
-                              fontSize: 14,
-                            ),
+                          Builder(
+                            builder: (context) {
+                              // Count expired vs expiring products
+                              int expiredCount = 0;
+                              int expiringCount = 0;
+
+                              for (var doc in expiringProducts) {
+                                var data = doc.data() as Map<String, dynamic>;
+                                DateTime expiryDate;
+                                try {
+                                  final expiryTimestamp = data['expiryDate'];
+                                  expiryDate = expiryTimestamp != null
+                                      ? (expiryTimestamp as Timestamp).toDate()
+                                      : DateTime.now().add(Duration(days: 365));
+                                } catch (e) {
+                                  expiryDate = DateTime.now().add(
+                                    Duration(days: 365),
+                                  );
+                                }
+
+                                var daysLeft = expiryDate
+                                    .difference(DateTime.now())
+                                    .inDays;
+                                if (daysLeft < 0) {
+                                  expiredCount++;
+                                } else {
+                                  expiringCount++;
+                                }
+                              }
+
+                              String message = '';
+                              if (expiredCount > 0 && expiringCount > 0) {
+                                message =
+                                    '$expiredCount expired, $expiringCount expiring soon';
+                              } else if (expiredCount > 0) {
+                                message =
+                                    '$expiredCount ${expiredCount == 1 ? 'warranty has' : 'warranties have'} expired';
+                              } else {
+                                message =
+                                    '$expiringCount ${expiringCount == 1 ? 'warranty is' : 'warranties are'} expiring soon';
+                              }
+
+                              return Text(
+                                message,
+                                style: TextStyle(
+                                  color: Colors.orange[700],
+                                  fontSize: 14,
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

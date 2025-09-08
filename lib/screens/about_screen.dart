@@ -40,7 +40,7 @@ class AboutScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       child: Image.asset(
                         'assets/images/insure logo.webp',
-                        width: 100,
+                        width: 300,
                         height: 100,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
@@ -79,7 +79,7 @@ class AboutScreen extends StatelessWidget {
             // Mission Statement
             _buildSection(
               'Our Mission',
-              'INSURE is designed to help you keep track of all your product warranties in one secure place. Never worry about losing warranty cards or missing expiry dates again.',
+              'INSURESO is designed to help you keep track of all your product warranties in one secure place. Never worry about losing warranty cards or missing expiry dates again.',
             ),
 
             // Development Team Section
@@ -393,11 +393,7 @@ class AboutScreen extends StatelessWidget {
               color: Color(0xFF1E88E5).withOpacity(0.1),
               borderRadius: BorderRadius.circular(50),
             ),
-            child: Icon(
-              icon,
-              color: Color(0xFF1E88E5),
-              size: 24,
-            ),
+            child: Icon(icon, color: Color(0xFF1E88E5), size: 24),
           ),
           SizedBox(width: 16),
           Expanded(

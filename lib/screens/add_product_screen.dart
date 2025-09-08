@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import 'dart:async';
 import '../services/manufacturer_email_service.dart';
@@ -229,9 +230,32 @@ class _AddProductScreenState extends State<AddProductScreen> {
         'store': _storeController.text.trim(),
         'notes': _notesController.text.trim(),
         'userId': user.uid,
-        'createdAt':
-            Timestamp.now(), // Use Timestamp.now() instead of FieldValue.serverTimestamp()
+        'createdAt': Timestamp.now(),
       };
+
+      // Calculate and add expiry date
+      try {
+        DateTime purchaseDate = DateFormat(
+          'd/M/yyyy',
+        ).parse(_purchaseDateController.text.trim());
+        DateTime expiryDate = DateTime(
+          purchaseDate.year,
+          purchaseDate.month + _warrantyMonths.round(),
+          purchaseDate.day,
+        );
+        warrantyData['expiryDate'] = Timestamp.fromDate(expiryDate);
+        print(
+          '✅ Calculated expiry date: $expiryDate (${_warrantyMonths} months from $purchaseDate)',
+        );
+      } catch (e) {
+        print('❌ Error calculating expiry date: $e');
+        // Fallback: add warranty months to current date
+        DateTime fallbackExpiry = DateTime.now().add(
+          Duration(days: (_warrantyMonths * 30).round()),
+        );
+        warrantyData['expiryDate'] = Timestamp.fromDate(fallbackExpiry);
+        print('⚠️ Using fallback expiry date: $fallbackExpiry');
+      }
 
       // Only add image URLs if they exist
       if (productImageUrl != null && productImageUrl.isNotEmpty) {
