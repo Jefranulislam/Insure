@@ -25,7 +25,7 @@ class InsureApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'INSURE',
+      title: 'INSURESO',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         primaryColor: Color(0xFF1E88E5),

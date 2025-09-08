@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/manufacturer_email_service.dart';
+import '../services/automatic_email_service.dart';
 
 class ClaimWarrantyScreen extends StatefulWidget {
   @override
@@ -297,8 +298,30 @@ ${Uri.decodeComponent(body)}
         'claimNumber': claimNumber,
       });
 
-      // Automatically send email to manufacturer
-      await _sendEmailToManufacturer(claimNumber);
+      // Try automatic email sending first
+      bool automaticEmailSent = false;
+      if (companyEmail.isNotEmpty &&
+          AutomaticEmailService.isAutomaticEmailConfigured()) {
+        print('🚀 Attempting automatic email to $brand...');
+        automaticEmailSent =
+            await AutomaticEmailService.sendAutomaticClaimEmail(
+              manufacturerEmail: companyEmail,
+              brandName: brand,
+              productName: warrantyData!['productName'] ?? '',
+              claimNumber: claimNumber,
+              issueType: _selectedIssueType,
+              issueTitle: _issueController.text.trim(),
+              description: _descriptionController.text.trim(),
+            );
+      }
+
+      // Fallback: Manual email if automatic failed or not configured
+      if (!automaticEmailSent) {
+        print(
+          '📧 Automatic email failed/not configured, opening manual email...',
+        );
+        await _sendEmailToManufacturer(claimNumber);
+      }
 
       // Show success dialog with email confirmation
       showDialog(
@@ -311,15 +334,37 @@ ${Uri.decodeComponent(body)}
             children: [
               Text('Claim Number: $claimNumber'),
               SizedBox(height: 8),
-              Text('Email sent to: $brand'),
-              if (companyEmail.isNotEmpty)
+              if (automaticEmailSent) ...[
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 16),
+                    SizedBox(width: 4),
+                    Text('Email automatically sent to $brand'),
+                  ],
+                ),
                 Text(
                   '($companyEmail)',
-                  style: TextStyle(color: Colors.grey[600]),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
+              ] else ...[
+                Row(
+                  children: [
+                    Icon(Icons.email, color: Colors.blue, size: 16),
+                    SizedBox(width: 4),
+                    Text('Email client opened for $brand'),
+                  ],
+                ),
+                if (companyEmail.isNotEmpty)
+                  Text(
+                    '($companyEmail)',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+              ],
               SizedBox(height: 16),
               Text(
-                'Your email client should have opened automatically. If not, you can resend the email from the claim tracking screen.',
+                automaticEmailSent
+                    ? 'The manufacturer has been automatically notified about your warranty claim.'
+                    : 'Your email client should have opened automatically. If not, you can resend the email from the claim tracking screen.',
               ),
             ],
           ),
